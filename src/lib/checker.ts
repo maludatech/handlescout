@@ -5,10 +5,13 @@ export interface PlatformResult {
   available: boolean;
   url: string;
   error?: boolean;
+  tooLong?: boolean;
+  maxLength?: number;
 }
 
 export interface Platform {
   name: string;
+  maxLength: number;
   url: (username: string) => string;
   checkAvailability: (username: string) => Promise<boolean>;
 }
@@ -16,6 +19,7 @@ export interface Platform {
 const platforms: Platform[] = [
   {
     name: "Instagram",
+    maxLength: 30,
     url: (u) => `https://instagram.com/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -32,6 +36,7 @@ const platforms: Platform[] = [
   },
   {
     name: "X (Twitter)",
+    maxLength: 15,
     url: (u) => `https://x.com/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -48,6 +53,7 @@ const platforms: Platform[] = [
   },
   {
     name: "TikTok",
+    maxLength: 24,
     url: (u) => `https://tiktok.com/@${u}`,
     checkAvailability: async (u) => {
       try {
@@ -64,6 +70,7 @@ const platforms: Platform[] = [
   },
   {
     name: "GitHub",
+    maxLength: 39,
     url: (u) => `https://github.com/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -80,6 +87,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Reddit",
+    maxLength: 20,
     url: (u) => `https://reddit.com/user/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -99,6 +107,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Pinterest",
+    maxLength: 15,
     url: (u) => `https://pinterest.com/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -115,6 +124,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Twitch",
+    maxLength: 25,
     url: (u) => `https://twitch.tv/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -131,6 +141,7 @@ const platforms: Platform[] = [
   },
   {
     name: "YouTube",
+    maxLength: 30,
     url: (u) => `https://youtube.com/@${u}`,
     checkAvailability: async (u) => {
       try {
@@ -147,6 +158,7 @@ const platforms: Platform[] = [
   },
   {
     name: "LinkedIn",
+    maxLength: 100,
     url: (u) => `https://linkedin.com/in/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -163,6 +175,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Snapchat",
+    maxLength: 15,
     url: (u) => `https://snapchat.com/add/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -179,6 +192,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Medium",
+    maxLength: 30,
     url: (u) => `https://medium.com/@${u}`,
     checkAvailability: async (u) => {
       try {
@@ -195,6 +209,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Tumblr",
+    maxLength: 32,
     url: (u) => `https://${u}.tumblr.com`,
     checkAvailability: async (u) => {
       try {
@@ -211,6 +226,7 @@ const platforms: Platform[] = [
   },
   {
     name: "SoundCloud",
+    maxLength: 25,
     url: (u) => `https://soundcloud.com/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -227,6 +243,7 @@ const platforms: Platform[] = [
   },
   {
     name: "Telegram",
+    maxLength: 32,
     url: (u) => `https://t.me/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -235,9 +252,7 @@ const platforms: Platform[] = [
           headers: { "User-Agent": "Mozilla/5.0" },
           validateStatus: () => true,
         });
-        // Telegram returns 200 even for non-existent users
-        // but the body contains a specific string
-        return res.data?.includes("If you have Telegram") === false;
+        return !res.data?.includes("If you have Telegram");
       } catch {
         return false;
       }
@@ -245,6 +260,7 @@ const platforms: Platform[] = [
   },
   {
     name: "DevTo",
+    maxLength: 50,
     url: (u) => `https://dev.to/${u}`,
     checkAvailability: async (u) => {
       try {
@@ -266,24 +282,36 @@ export async function checkUsername(
 ): Promise<PlatformResult[]> {
   const results = await Promise.allSettled(
     platforms.map(async (platform) => {
+      // Check length before making any HTTP request
+      if (username.length > platform.maxLength) {
+        return {
+          platform: platform.name,
+          available: false,
+          url: platform.url(username),
+          tooLong: true,
+          maxLength: platform.maxLength,
+        };
+      }
+
       const available = await platform.checkAvailability(username);
       return {
         platform: platform.name,
         available,
         url: platform.url(username),
+        tooLong: false,
+        maxLength: platform.maxLength,
       };
     }),
   );
 
   return results.map((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value;
-    }
+    if (result.status === "fulfilled") return result.value;
     return {
       platform: platforms[index].name,
       available: false,
       url: platforms[index].url(username),
       error: true,
+      maxLength: platforms[index].maxLength,
     };
   });
 }
@@ -292,18 +320,18 @@ export async function checkMultipleUsernames(
   usernames: string[],
 ): Promise<Record<string, PlatformResult[]>> {
   const results: Record<string, PlatformResult[]> = {};
-
-  // Check all usernames in parallel
   await Promise.all(
     usernames.map(async (username) => {
       results[username] = await checkUsername(username);
     }),
   );
-
   return results;
 }
 
 export function getAvailabilityScore(results: PlatformResult[]): number {
-  const available = results.filter((r) => r.available).length;
-  return Math.round((available / results.length) * 100);
+  // Only score platforms where the username fits — don't penalize for length
+  const eligible = results.filter((r) => !r.tooLong);
+  if (eligible.length === 0) return 0;
+  const available = eligible.filter((r) => r.available).length;
+  return Math.round((available / eligible.length) * 100);
 }

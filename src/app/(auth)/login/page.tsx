@@ -2,16 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -23,7 +13,6 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Redirect if already logged in
   useEffect(() => {
     const checkSession = async () => {
       const {
@@ -37,72 +26,153 @@ export default function LoginPage() {
   const handleLogin = async () => {
     setLoading(true);
     setError(null);
-
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
-
     router.push("/dashboard");
     router.refresh();
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>Sign in to your account</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && (
-          <div className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-md">
-            {error}
-          </div>
-        )}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Email</label>
-          <Input
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Password</label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
-        </div>
-        <Button
-          className="w-full"
-          onClick={handleLogin}
-          disabled={loading || !email || !password}
+    <div
+      className="glass animate-fade-up"
+      style={{
+        width: "100%",
+        maxWidth: "420px",
+        padding: "40px",
+      }}
+    >
+      <h1
+        style={{
+          fontFamily: "Syne, sans-serif",
+          fontSize: "26px",
+          fontWeight: 700,
+          marginBottom: "8px",
+        }}
+      >
+        Welcome back
+      </h1>
+      <p
+        style={{
+          color: "var(--text-muted)",
+          fontSize: "15px",
+          marginBottom: "32px",
+        }}
+      >
+        Sign in to your account
+      </p>
+
+      {error && (
+        <div
+          style={{
+            background: "#ef444415",
+            border: "1px solid #ef444430",
+            borderRadius: "var(--radius-sm)",
+            padding: "12px 16px",
+            fontSize: "14px",
+            color: "#f87171",
+            marginBottom: "20px",
+          }}
         >
-          {loading ? "Signing in..." : "Sign in"}
-        </Button>
-      </CardContent>
-      <CardFooter className="justify-center">
-        <p className="text-sm text-slate-500">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="text-slate-900 font-medium hover:underline"
+          {error}
+        </div>
+      )}
+
+      <div style={{ marginBottom: "16px" }}>
+        <label
+          style={{
+            display: "block",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "var(--text-secondary)",
+            marginBottom: "8px",
+          }}
+        >
+          Email
+        </label>
+        <input
+          className="input"
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+
+      <div style={{ marginBottom: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "8px",
+          }}
+        >
+          <label
+            style={{
+              fontSize: "14px",
+              fontWeight: 500,
+              color: "var(--text-secondary)",
+            }}
           >
-            Sign up
+            Password
+          </label>
+          <Link
+            href="/forgot-password"
+            style={{
+              fontSize: "13px",
+              color: "var(--accent)",
+              textDecoration: "none",
+            }}
+          >
+            Forgot password?
           </Link>
-        </p>
-      </CardFooter>
-    </Card>
+        </div>
+        <input
+          className="input"
+          type="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+        />
+      </div>
+
+      <button
+        className="btn-primary"
+        onClick={handleLogin}
+        disabled={loading || !email || !password}
+        style={{ width: "100%", marginTop: "8px" }}
+      >
+        {loading ? "Signing in..." : "Sign in →"}
+      </button>
+
+      <p
+        style={{
+          textAlign: "center",
+          marginTop: "24px",
+          fontSize: "14px",
+          color: "var(--text-muted)",
+        }}
+      >
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/signup"
+          style={{
+            color: "var(--accent)",
+            textDecoration: "none",
+            fontWeight: 500,
+          }}
+        >
+          Sign up
+        </Link>
+      </p>
+    </div>
   );
 }

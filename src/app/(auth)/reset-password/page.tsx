@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-export default function SignupPage() {
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -16,33 +15,40 @@ export default function SignupPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) router.replace("/dashboard");
-    };
-    checkSession();
+    // Supabase handles the token from the URL automatically
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        // User is now in password recovery mode
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleSignup = async () => {
+  const handleReset = async () => {
+    if (password !== confirm) {
+      setError("Passwords do not match");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+
+    const { error } = await supabase.auth.updateUser({ password });
+
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
+
     setSuccess(true);
-    setLoading(false);
+    setTimeout(() => router.push("/dashboard"), 2000);
   };
 
   if (success) {
@@ -70,7 +76,7 @@ export default function SignupPage() {
             margin: "0 auto 20px",
           }}
         >
-          ✉️
+          ✓
         </div>
         <h2
           style={{
@@ -80,18 +86,10 @@ export default function SignupPage() {
             marginBottom: "10px",
           }}
         >
-          Check your email
+          Password updated
         </h2>
-        <p
-          style={{
-            color: "var(--text-muted)",
-            fontSize: "15px",
-            lineHeight: 1.7,
-          }}
-        >
-          We sent a confirmation link to{" "}
-          <strong style={{ color: "var(--text-secondary)" }}>{email}</strong>.
-          Click it to activate your account.
+        <p style={{ color: "var(--text-muted)", fontSize: "15px" }}>
+          Redirecting you to the dashboard...
         </p>
       </div>
     );
@@ -114,7 +112,7 @@ export default function SignupPage() {
           marginBottom: "8px",
         }}
       >
-        Create an account
+        New password
       </h1>
       <p
         style={{
@@ -123,7 +121,7 @@ export default function SignupPage() {
           marginBottom: "32px",
         }}
       >
-        Start finding your perfect username
+        Choose a strong password for your account
       </p>
 
       {error && (
@@ -152,35 +150,14 @@ export default function SignupPage() {
             marginBottom: "8px",
           }}
         >
-          Full name
+          New password
         </label>
         <input
           className="input"
-          type="text"
-          placeholder="John Doe"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-      </div>
-
-      <div style={{ marginBottom: "16px" }}>
-        <label
-          style={{
-            display: "block",
-            fontSize: "14px",
-            fontWeight: 500,
-            color: "var(--text-secondary)",
-            marginBottom: "8px",
-          }}
-        >
-          Email
-        </label>
-        <input
-          className="input"
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
       </div>
 
@@ -194,47 +171,26 @@ export default function SignupPage() {
             marginBottom: "8px",
           }}
         >
-          Password
+          Confirm password
         </label>
         <input
           className="input"
           type="password"
           placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSignup()}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleReset()}
         />
       </div>
 
       <button
         className="btn-primary"
-        onClick={handleSignup}
-        disabled={loading || !email || !password || !fullName}
+        onClick={handleReset}
+        disabled={loading || !password || !confirm}
         style={{ width: "100%", marginTop: "16px" }}
       >
-        {loading ? "Creating account..." : "Create account →"}
+        {loading ? "Updating..." : "Update password →"}
       </button>
-
-      <p
-        style={{
-          textAlign: "center",
-          marginTop: "24px",
-          fontSize: "14px",
-          color: "var(--text-muted)",
-        }}
-      >
-        Already have an account?{" "}
-        <Link
-          href="/login"
-          style={{
-            color: "var(--accent)",
-            textDecoration: "none",
-            fontWeight: 500,
-          }}
-        >
-          Sign in
-        </Link>
-      </p>
     </div>
   );
 }

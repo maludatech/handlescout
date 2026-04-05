@@ -1,40 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-export default function SignupPage() {
-  const [fullName, setFullName] = useState("");
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) router.replace("/dashboard");
-    };
-    checkSession();
-  }, []);
-
-  const handleSignup = async () => {
+  const handleReset = async () => {
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) {
       setError(error.message);
@@ -87,12 +68,22 @@ export default function SignupPage() {
             color: "var(--text-muted)",
             fontSize: "15px",
             lineHeight: 1.7,
+            marginBottom: "24px",
           }}
         >
-          We sent a confirmation link to{" "}
+          We sent a password reset link to{" "}
           <strong style={{ color: "var(--text-secondary)" }}>{email}</strong>.
-          Click it to activate your account.
         </p>
+        <Link
+          href="/login"
+          style={{
+            color: "var(--accent)",
+            textDecoration: "none",
+            fontSize: "14px",
+          }}
+        >
+          ← Back to sign in
+        </Link>
       </div>
     );
   }
@@ -114,7 +105,7 @@ export default function SignupPage() {
           marginBottom: "8px",
         }}
       >
-        Create an account
+        Reset password
       </h1>
       <p
         style={{
@@ -123,7 +114,7 @@ export default function SignupPage() {
           marginBottom: "32px",
         }}
       >
-        Start finding your perfect username
+        Enter your email and we&apos;ll send you a reset link
       </p>
 
       {error && (
@@ -152,27 +143,6 @@ export default function SignupPage() {
             marginBottom: "8px",
           }}
         >
-          Full name
-        </label>
-        <input
-          className="input"
-          type="text"
-          placeholder="John Doe"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-      </div>
-
-      <div style={{ marginBottom: "16px" }}>
-        <label
-          style={{
-            display: "block",
-            fontSize: "14px",
-            fontWeight: 500,
-            color: "var(--text-secondary)",
-            marginBottom: "8px",
-          }}
-        >
           Email
         </label>
         <input
@@ -181,38 +151,17 @@ export default function SignupPage() {
           placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-
-      <div style={{ marginBottom: "8px" }}>
-        <label
-          style={{
-            display: "block",
-            fontSize: "14px",
-            fontWeight: 500,
-            color: "var(--text-secondary)",
-            marginBottom: "8px",
-          }}
-        >
-          Password
-        </label>
-        <input
-          className="input"
-          type="password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSignup()}
+          onKeyDown={(e) => e.key === "Enter" && handleReset()}
         />
       </div>
 
       <button
         className="btn-primary"
-        onClick={handleSignup}
-        disabled={loading || !email || !password || !fullName}
-        style={{ width: "100%", marginTop: "16px" }}
+        onClick={handleReset}
+        disabled={loading || !email}
+        style={{ width: "100%" }}
       >
-        {loading ? "Creating account..." : "Create account →"}
+        {loading ? "Sending..." : "Send reset link →"}
       </button>
 
       <p
@@ -223,16 +172,14 @@ export default function SignupPage() {
           color: "var(--text-muted)",
         }}
       >
-        Already have an account?{" "}
         <Link
           href="/login"
           style={{
             color: "var(--accent)",
             textDecoration: "none",
-            fontWeight: 500,
           }}
         >
-          Sign in
+          ← Back to sign in
         </Link>
       </p>
     </div>
