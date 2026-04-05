@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "HandleScout — Find your perfect username",
-  description:
-    "AI-generated usernames checked across 15 platforms instantly. Find your perfect handle.",
+  description: "AI-generated usernames checked across 15 platforms instantly.",
+  openGraph: {
+    title: "HandleScout — Find your perfect username",
+    description:
+      "AI-generated usernames checked across 15 platforms instantly.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -14,7 +20,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <main>{children}</main>
+        <Toaster richColors />
+      </body>
     </html>
   );
 }
