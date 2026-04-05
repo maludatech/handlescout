@@ -12,6 +12,7 @@ export interface PlatformResult {
 export interface Platform {
   name: string;
   maxLength: number;
+  unreliable?: boolean;
   url: (username: string) => string;
   checkAvailability: (username: string) => Promise<boolean>;
 }
@@ -37,18 +38,10 @@ const platforms: Platform[] = [
   {
     name: "X (Twitter)",
     maxLength: 15,
+    unreliable: true,
     url: (u) => `https://x.com/${u}`,
-    checkAvailability: async (u) => {
-      try {
-        const res = await axios.get(`https://x.com/${u}`, {
-          timeout: 5000,
-          headers: { "User-Agent": "Mozilla/5.0" },
-          validateStatus: () => true,
-        });
-        return res.status === 404;
-      } catch {
-        return false;
-      }
+    checkAvailability: async (_u) => {
+      throw new Error("unreliable");
     },
   },
   {
@@ -159,35 +152,19 @@ const platforms: Platform[] = [
   {
     name: "LinkedIn",
     maxLength: 100,
+    unreliable: true,
     url: (u) => `https://linkedin.com/in/${u}`,
-    checkAvailability: async (u) => {
-      try {
-        const res = await axios.get(`https://www.linkedin.com/in/${u}/`, {
-          timeout: 5000,
-          headers: { "User-Agent": "Mozilla/5.0" },
-          validateStatus: () => true,
-        });
-        return res.status === 404;
-      } catch {
-        return false;
-      }
+    checkAvailability: async (_u) => {
+      throw new Error("unreliable");
     },
   },
   {
     name: "Snapchat",
     maxLength: 15,
+    unreliable: true,
     url: (u) => `https://snapchat.com/add/${u}`,
-    checkAvailability: async (u) => {
-      try {
-        const res = await axios.get(`https://www.snapchat.com/add/${u}`, {
-          timeout: 5000,
-          headers: { "User-Agent": "Mozilla/5.0" },
-          validateStatus: () => true,
-        });
-        return res.status === 404;
-      } catch {
-        return false;
-      }
+    checkAvailability: async (_u) => {
+      throw new Error("unreliable");
     },
   },
   {
@@ -282,6 +259,17 @@ export async function checkUsername(
 ): Promise<PlatformResult[]> {
   const results = await Promise.allSettled(
     platforms.map(async (platform) => {
+      // Mark unreliable platforms without making a request
+      if (platform.unreliable) {
+        return {
+          platform: platform.name,
+          available: false,
+          url: platform.url(username),
+          error: true,
+          maxLength: platform.maxLength,
+        };
+      }
+
       // Check length before making any HTTP request
       if (username.length > platform.maxLength) {
         return {
@@ -329,8 +317,8 @@ export async function checkMultipleUsernames(
 }
 
 export function getAvailabilityScore(results: PlatformResult[]): number {
-  // Only score platforms where the username fits — don't penalize for length
-  const eligible = results.filter((r) => !r.tooLong);
+  // Exclude unreliable (error) and too-long platforms from score
+  const eligible = results.filter((r) => !r.tooLong && !r.error);
   if (eligible.length === 0) return 0;
   const available = eligible.filter((r) => r.available).length;
   return Math.round((available / eligible.length) * 100);

@@ -157,40 +157,52 @@ function PlatformBreakdown({ result }: { result: UsernameResult }) {
                 {r.platform}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span
-                className={`badge ${
-                  r.error
-                    ? "badge-unknown"
-                    : r.tooLong
-                      ? "badge-unknown"
-                      : r.available
-                        ? "badge-available"
-                        : "badge-taken"
-                }`}
-              >
-                {r.error
-                  ? "Unknown"
-                  : r.tooLong
-                    ? `Too long (max ${r.maxLength})`
-                    : r.available
-                      ? "Available"
-                      : "Taken"}
-              </span>
 
-              {r.available && !r.error && (
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {r.tooLong ? (
+                <span className="badge badge-unknown">
+                  Too long (max {r.maxLength})
+                </span>
+              ) : r.error ? (
                 <a
                   href={r.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
-                    fontSize: "12px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "13px",
                     color: "var(--accent)",
                     textDecoration: "none",
+                    background: "#6366f110",
+                    border: "1px solid #6366f120",
+                    borderRadius: "100px",
+                    padding: "4px 12px",
+                    fontWeight: 500,
+                    transition: "all 0.2s",
                   }}
                 >
-                  Visit →
+                  Check manually →
                 </a>
+              ) : r.available ? (
+                <>
+                  <span className="badge badge-available">Available</span>
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--accent)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Visit →
+                  </a>
+                </>
+              ) : (
+                <span className="badge badge-taken">Taken</span>
               )}
             </div>
           </div>
@@ -238,6 +250,7 @@ export default function SearchForm({
       setDirectError("Letters only — no numbers, underscores or symbols.");
       return;
     }
+
     setDirectLoading(true);
     setDirectError(null);
     setDirectResult(null);
@@ -249,6 +262,7 @@ export default function SearchForm({
         body: JSON.stringify({ username: directUsername.trim().toLowerCase() }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         setDirectError(data.error ?? "Something went wrong");
         return;
@@ -269,6 +283,7 @@ export default function SearchForm({
       );
       return;
     }
+
     setGenerateLoading(true);
     setGenerateError(null);
     setGenerateResults([]);
@@ -288,10 +303,12 @@ export default function SearchForm({
         body: JSON.stringify({ keywords, vibe }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         setGenerateError(data.error ?? "Something went wrong");
         return;
       }
+
       setGenerateResults(data.usernames);
       if (data.usernames.length > 0)
         setSelectedUsername(data.usernames[0].username);
@@ -325,7 +342,18 @@ export default function SearchForm({
         {(["check", "generate"] as const).map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              if (tab === "generate") {
+                setDirectResult(null);
+                setDirectError(null);
+                setDirectUsername("");
+              } else {
+                setGenerateResults([]);
+                setSelectedUsername(null);
+                setGenerateError(null);
+              }
+            }}
             style={{
               flex: 1,
               padding: "10px 16px",
@@ -412,7 +440,7 @@ export default function SearchForm({
               disabled={directLoading || !directUsername.trim()}
               style={{ padding: "12px 24px", whiteSpace: "nowrap" }}
             >
-              {directLoading ? "Checking..." : "Check"}
+              {directLoading ? "..." : "Check"}
             </button>
           </div>
           <p
@@ -520,7 +548,7 @@ export default function SearchForm({
               {generateError}
               {generateError.includes("Upgrade") && (
                 <a
-                  href="/dashboard"
+                  href="#"
                   style={{
                     marginLeft: "8px",
                     color: "var(--accent)",
@@ -588,117 +616,123 @@ export default function SearchForm({
       )}
 
       {/* Direct check result */}
-      {directResult && !directLoading && (
+      {activeTab === "check" && directResult && !directLoading && (
         <PlatformBreakdown result={directResult} />
       )}
 
       {/* Generate results */}
-      {generateResults.length > 0 && !generateLoading && (
-        <div style={{ marginTop: "24px" }} className="animate-fade-up">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 2fr",
-              gap: "20px",
-            }}
-          >
-            {/* Username list */}
-            <div>
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  fontWeight: 500,
-                  marginBottom: "12px",
-                }}
-              >
-                Generated usernames
-              </p>
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "8px" }}
-              >
-                {generateResults.map((r) => (
-                  <button
-                    key={r.username}
-                    onClick={() => setSelectedUsername(r.username)}
-                    style={{
-                      textAlign: "left",
-                      padding: "14px 16px",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid",
-                      borderColor:
-                        selectedUsername === r.username
-                          ? "var(--accent)"
-                          : "var(--border)",
-                      background:
-                        selectedUsername === r.username
-                          ? "#6366f115"
-                          : "var(--bg-card)",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      fontFamily: "DM Sans, sans-serif",
-                    }}
-                  >
-                    <div
+      {activeTab === "generate" &&
+        generateResults.length > 0 &&
+        !generateLoading && (
+          <div style={{ marginTop: "24px" }} className="animate-fade-up">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "20px",
+              }}
+            >
+              {/* Username list */}
+              <div>
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    fontWeight: 500,
+                    marginBottom: "12px",
+                  }}
+                >
+                  Generated usernames
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  {generateResults.map((r) => (
+                    <button
+                      key={r.username}
+                      onClick={() => setSelectedUsername(r.username)}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "6px",
+                        textAlign: "left",
+                        padding: "14px 16px",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid",
+                        borderColor:
+                          selectedUsername === r.username
+                            ? "var(--accent)"
+                            : "var(--border)",
+                        background:
+                          selectedUsername === r.username
+                            ? "#6366f115"
+                            : "var(--bg-card)",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        fontFamily: "DM Sans, sans-serif",
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          fontSize: "14px",
-                          fontWeight: 600,
-                          color:
-                            selectedUsername === r.username
-                              ? "#818cf8"
-                              : "var(--text-primary)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: "6px",
                         }}
                       >
-                        @{r.username}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          padding: "2px 8px",
-                          borderRadius: "100px",
-                          background:
-                            r.score >= 70
-                              ? "#10b98120"
-                              : r.score >= 40
-                                ? "#f59e0b20"
-                                : "#ef444420",
-                          color:
-                            r.score >= 70
-                              ? "#34d399"
-                              : r.score >= 40
-                                ? "#fbbf24"
-                                : "#f87171",
-                        }}
-                      >
-                        {r.score}%
-                      </span>
-                    </div>
-                    <ScoreBar score={r.score} />
-                  </button>
-                ))}
+                        <span
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: 600,
+                            color:
+                              selectedUsername === r.username
+                                ? "#818cf8"
+                                : "var(--text-primary)",
+                          }}
+                        >
+                          @{r.username}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                            borderRadius: "100px",
+                            background:
+                              r.score >= 70
+                                ? "#10b98120"
+                                : r.score >= 40
+                                  ? "#f59e0b20"
+                                  : "#ef444420",
+                            color:
+                              r.score >= 70
+                                ? "#34d399"
+                                : r.score >= 40
+                                  ? "#fbbf24"
+                                  : "#f87171",
+                          }}
+                        >
+                          {r.score}%
+                        </span>
+                      </div>
+                      <ScoreBar score={r.score} />
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Platform breakdown */}
-            {selectedResult && (
-              <div>
-                <PlatformBreakdown result={selectedResult} />
-              </div>
-            )}
+              {/* Platform breakdown */}
+              {selectedResult && (
+                <div>
+                  <PlatformBreakdown result={selectedResult} />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

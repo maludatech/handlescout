@@ -61,10 +61,20 @@ export default function ProfilePage() {
     setSaving(true);
     setProfileMsg(null);
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setProfileMsg({ type: "error", text: "Not authenticated" });
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({ full_name: fullName })
-      .eq("id", profile.email); // Better to use 'id' instead of email if possible
+      .eq("id", user.id);
 
     if (error) {
       setProfileMsg({ type: "error", text: error.message });
