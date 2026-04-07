@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface PlatformResult {
   platform: string;
@@ -72,7 +73,15 @@ function ScoreBar({ score }: { score: number }) {
   );
 }
 
-function PlatformBreakdown({ result }: { result: UsernameResult }) {
+function PlatformBreakdown({
+  result,
+  plan,
+  onSave,
+}: {
+  result: UsernameResult;
+  plan: string;
+  onSave: (username: string, availableOn: string[]) => void;
+}) {
   return (
     <div style={{ marginTop: "24px" }} className="animate-fade-up">
       <div
@@ -95,35 +104,61 @@ function PlatformBreakdown({ result }: { result: UsernameResult }) {
         >
           Availability for @{result.username}
         </h2>
-        <span
-          style={{
-            fontSize: "14px",
-            fontWeight: 600,
-            padding: "4px 12px",
-            borderRadius: "100px",
-            background:
-              result.score >= 70
-                ? "#10b98120"
-                : result.score >= 40
-                  ? "#f59e0b20"
-                  : "#ef444420",
-            color:
-              result.score >= 70
-                ? "#34d399"
-                : result.score >= 40
-                  ? "#fbbf24"
-                  : "#f87171",
-            border: `1px solid ${
-              result.score >= 70
-                ? "#10b98130"
-                : result.score >= 40
-                  ? "#f59e0b30"
-                  : "#ef444430"
-            }`,
-          }}
-        >
-          {result.score}% available
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span
+            style={{
+              fontSize: "14px",
+              fontWeight: 600,
+              padding: "4px 12px",
+              borderRadius: "100px",
+              background:
+                result.score >= 70
+                  ? "#10b98120"
+                  : result.score >= 40
+                    ? "#f59e0b20"
+                    : "#ef444420",
+              color:
+                result.score >= 70
+                  ? "#34d399"
+                  : result.score >= 40
+                    ? "#fbbf24"
+                    : "#f87171",
+              border: `1px solid ${
+                result.score >= 70
+                  ? "#10b98130"
+                  : result.score >= 40
+                    ? "#f59e0b30"
+                    : "#ef444430"
+              }`,
+            }}
+          >
+            {result.score}% available
+          </span>
+          {plan === "pro" && (
+            <button
+              onClick={() => {
+                const availableOn = result.results
+                  .filter((r) => r.available && !r.error && !r.tooLong)
+                  .map((r) => r.platform);
+                onSave(result.username, availableOn);
+              }}
+              style={{
+                padding: "4px 14px",
+                borderRadius: "100px",
+                border: "1px solid #6366f130",
+                background: "#6366f115",
+                color: "#818cf8",
+                fontSize: "13px",
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "DM Sans, sans-serif",
+                transition: "all 0.2s",
+              }}
+            >
+              🔖 Save
+            </button>
+          )}
+        </div>
       </div>
 
       <ScoreBar score={result.score} />
@@ -250,7 +285,6 @@ export default function SearchForm({
       setDirectError("Letters only — no numbers, underscores or symbols.");
       return;
     }
-
     setDirectLoading(true);
     setDirectError(null);
     setDirectResult(null);
@@ -262,7 +296,6 @@ export default function SearchForm({
         body: JSON.stringify({ username: directUsername.trim().toLowerCase() }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         setDirectError(data.error ?? "Something went wrong");
         return;
@@ -283,7 +316,6 @@ export default function SearchForm({
       );
       return;
     }
-
     setGenerateLoading(true);
     setGenerateError(null);
     setGenerateResults([]);
@@ -303,12 +335,10 @@ export default function SearchForm({
         body: JSON.stringify({ keywords, vibe }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         setGenerateError(data.error ?? "Something went wrong");
         return;
       }
-
       setGenerateResults(data.usernames);
       if (data.usernames.length > 0)
         setSelectedUsername(data.usernames[0].username);
@@ -319,6 +349,24 @@ export default function SearchForm({
       clearInterval(msgInterval);
       setGenerateLoading(false);
       setLoadingMessage("");
+    }
+  };
+
+  const handleSave = async (username: string, availableOn: string[]) => {
+    try {
+      const res = await fetch("/api/saved-usernames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, available_on: availableOn }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to save");
+        return;
+      }
+      toast.success(`@${username} saved!`);
+    } catch {
+      toast.error("Something went wrong");
     }
   };
 
@@ -548,7 +596,7 @@ export default function SearchForm({
               {generateError}
               {generateError.includes("Upgrade") && (
                 <a
-                  href="#"
+                  href="/dashboard"
                   style={{
                     marginLeft: "8px",
                     color: "var(--accent)",
@@ -617,7 +665,11 @@ export default function SearchForm({
 
       {/* Direct check result */}
       {activeTab === "check" && directResult && !directLoading && (
-        <PlatformBreakdown result={directResult} />
+        <PlatformBreakdown
+          result={directResult}
+          plan={plan}
+          onSave={handleSave}
+        />
       )}
 
       {/* Generate results */}
@@ -727,7 +779,11 @@ export default function SearchForm({
               {/* Platform breakdown */}
               {selectedResult && (
                 <div>
-                  <PlatformBreakdown result={selectedResult} />
+                  <PlatformBreakdown
+                    result={selectedResult}
+                    plan={plan}
+                    onSave={handleSave}
+                  />
                 </div>
               )}
             </div>
