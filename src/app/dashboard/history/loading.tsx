@@ -25,12 +25,10 @@ export default function Loading() {
             justifyContent: "space-between",
           }}
         >
-          <div className="flex items-center gap-1.5">
-            <Skeleton className="h-7 w-40" />
-          </div>
+          <Skeleton className="h-7 w-40" />
 
           <div className="flex items-center gap-6">
-            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-28" />
             <Skeleton className="h-5 w-20" />
           </div>
         </div>
@@ -45,41 +43,31 @@ export default function Loading() {
       >
         {/* Header */}
         <div className="mb-10">
-          <Skeleton className="h-9 w-72 mb-3" />
-          <Skeleton className="h-5 w-105" />
+          <Skeleton className="h-9 w-56 mb-3" />
+          <Skeleton className="h-5 w-80" />
         </div>
 
-        {/* Skeletons Grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "16px",
-          }}
-        >
+        {/* Loading History Table */}
+        <div className="glass rounded-3xl overflow-hidden">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="glass p-5"
-              style={{ borderRadius: "var(--radius-lg)" }}
+              style={{
+                padding: "22px 24px",
+                borderBottom: i < 5 ? "1px solid var(--border)" : "none",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
             >
-              {/* Username + Date Row */}
-              <div className="flex justify-between items-start mb-4">
-                <Skeleton className="h-6 w-36" />
-                <Skeleton className="h-4 w-16" />
-              </div>
+              {/* Keywords / Search Term */}
+              <Skeleton className="h-5 w-[45%]" />
 
-              {/* Platforms */}
-              <div className="flex flex-wrap gap-2 mb-6">
-                {Array.from({ length: 3 }).map((_, idx) => (
-                  <Skeleton key={idx} className="h-5.5 w-16 rounded-full" />
+              {/* Generated Usernames */}
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <Skeleton key={idx} className="h-7 w-24 rounded-full" />
                 ))}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Skeleton className="h-9 flex-1 rounded-md" />
-                <Skeleton className="h-9 w-20 rounded-md" />
               </div>
             </div>
           ))}
