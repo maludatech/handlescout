@@ -1,6 +1,5 @@
 "use client";
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
