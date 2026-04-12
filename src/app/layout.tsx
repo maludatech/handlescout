@@ -14,6 +14,11 @@ export const metadata: Metadata = {
     default: `${APP_NAME} | ${APP_SLOGAN}`,
   },
   description: APP_DESCRIPTION,
+  icons: {
+    icon: "/assets/icons/favicon.ico",
+    shortcut: "/assets/icons/favicon-16x16.png",
+    apple: "/assets/icons/apple-touch-icon.png",
+  },
   openGraph: {
     title: APP_NAME,
     description: APP_DESCRIPTION,
