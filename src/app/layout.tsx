@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 import { APP_NAME, APP_SLOGAN, APP_DESCRIPTION } from "@/lib/constants";
 import "./globals.css";
 
@@ -50,10 +51,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <main>{children}</main>
-        <Toaster richColors />
+        <ThemeProvider
+          attribute="data-theme"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <main>{children}</main>
+          <Toaster richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

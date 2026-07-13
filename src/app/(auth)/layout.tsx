@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 export default function AuthLayout({
   children,
@@ -6,32 +7,28 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="dot-grid"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-      }}
-    >
-      {/* Logo */}
-      <Link
-        href="/"
-        style={{
-          fontFamily: "Syne, sans-serif",
-          fontSize: "22px",
-          fontWeight: 700,
-          color: "var(--text-primary)",
-          textDecoration: "none",
-          marginBottom: "40px",
-        }}
-      >
-        Handle<span style={{ color: "var(--accent)" }}>Scout</span>
-      </Link>
-      {children}
-    </div>
+    <>
+      <nav className="nav">
+        <div className="nav-inner" style={{ maxWidth: "1120px" }}>
+          <Link href="/" className="nav-logo">
+            <span className="mark">@</span>HandleScout
+          </Link>
+          <div className="nav-spacer" />
+          <ThemeToggle />
+        </div>
+      </nav>
+
+      <main className="auth-main">{children}</main>
+
+      <footer className="footer">
+        <div className="footer-inner" style={{ maxWidth: "1120px" }}>
+          <span className="t-caption t-muted">© {new Date().getFullYear()} HandleScout</span>
+          <div className="footer-links">
+            <Link href="/terms">Terms</Link>
+            <Link href="/privacy">Privacy</Link>
+          </div>
+        </div>
+      </footer>
+    </>
   );
 }

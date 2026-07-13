@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import SearchForm from "@/components/shared/SearchForm";
-import Navbar from "@/components/shared/Navbar";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import SearchForm from "@/components/shared/SearchForm";
+import Navbar from "@/components/shared/Navbar";
 
 interface Profile {
   plan: string;
@@ -15,48 +15,16 @@ interface Profile {
   last_search_date: string | null;
 }
 
-// Animation Variants
-const fadeUpVariants = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 300,
-      damping: 28,
-    },
-  },
-};
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.1,
-    },
-  },
-};
-
 export default function Dashboard() {
+  const { user, supabase, loading: authLoading } = useAuthGuard();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+    if (!user) return;
 
+    const fetchProfile = async () => {
       const { data } = await supabase
         .from("profiles")
         .select("plan, full_name, searches_today, last_search_date")
@@ -64,9 +32,7 @@ export default function Dashboard() {
         .single();
 
       setProfile(data);
-      setLoading(false);
 
-      // Show upgrade success toast
       const params = new URLSearchParams(window.location.search);
       if (params.get("upgraded") === "true") {
         toast.success("Welcome to Pro! Enjoy unlimited generations 🎉");
@@ -78,7 +44,8 @@ export default function Dashboard() {
       }
     };
     fetchProfile();
-  }, [router, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const getSearchesLeft = () => {
     if (!profile || profile.plan !== "free") return null;
@@ -123,110 +90,42 @@ export default function Dashboard() {
 
   const searchesLeft = getSearchesLeft();
 
-  // Loading State
-  if (loading) {
+  if (authLoading || !profile) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <motion.div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "12px",
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              border: "2px solid var(--border)",
-              borderTop: "2px solid var(--accent)",
-              borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-            }}
-          />
-          <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-            Loading...
-          </p>
-        </motion.div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p className="t-small t-muted">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh" }} className="dot-grid">
+    <div>
       <Navbar
-        plan={profile?.plan ?? "free"}
+        plan={profile.plan ?? "free"}
         searchesLeft={searchesLeft}
-        fullName={profile?.full_name ?? ""}
+        fullName={profile.full_name ?? ""}
         onUpgrade={handleUpgrade}
         onSignOut={handleSignOut}
         upgrading={upgrading}
       />
 
-      <main
-        style={{
-          maxWidth: "900px",
-          margin: "0 auto",
-          padding: "64px 24px",
-        }}
-      >
-        <motion.div
-          style={{ textAlign: "center", marginBottom: "48px" }}
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-        >
-          <motion.h1
-            className="hero-title"
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontSize: "clamp(32px, 6vw, 52px)",
-              fontWeight: 800,
-              marginBottom: "16px",
-              letterSpacing: "-0.03em",
-            }}
-            variants={fadeUpVariants}
-          >
-            Find your perfect <span className="gradient-text">username</span>
-          </motion.h1>
+      <main>
+        <div className="shell-app">
+          <header className="app-head">
+            <h1>Find your handle</h1>
+            <p className="t-sec">
+              Check one name across 15 platforms, or generate candidates with AI.
+            </p>
+          </header>
 
-          <motion.p
-            style={{
-              fontSize: "17px",
-              color: "var(--text-secondary)",
-              maxWidth: "500px",
-              margin: "0 auto",
-            }}
-            variants={fadeUpVariants}
-          >
-            Check if a handle is free, or let AI generate unique ones — across
-            15 platforms instantly
-          </motion.p>
-        </motion.div>
-
-        <motion.div
-          variants={fadeUpVariants}
-          initial="hidden"
-          animate="visible"
-          transition={{ delay: 0.2 }}
-        >
-          <SearchForm
-            plan={profile?.plan ?? "free"}
-            searchesLeft={searchesLeft}
-            onSearchUsed={handleSearchUsed}
-          />
-        </motion.div>
+          <div className="app-content">
+            <SearchForm
+              plan={profile.plan ?? "free"}
+              searchesLeft={searchesLeft}
+              onSearchUsed={handleSearchUsed}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

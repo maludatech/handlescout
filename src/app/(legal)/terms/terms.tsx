@@ -1,7 +1,3 @@
-"use client";
-
-import { motion } from "framer-motion";
-
 const sections = [
   {
     title: "1. Acceptance of terms",
@@ -49,121 +45,27 @@ const sections = [
   },
 ];
 
-// Animation Variants
-const fadeUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 280,
-      damping: 26,
-    },
-  },
-};
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.1,
-    },
-  },
-};
-
 export default function Terms() {
   return (
-    <div
-      style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        padding: "80px 24px 120px",
-        minHeight: "100vh",
-      }}
-    >
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        style={{ marginBottom: "48px" }}
-      >
-        <h1
-          style={{
-            fontFamily: "Syne, sans-serif",
-            fontSize: "40px",
-            fontWeight: 800,
-            marginBottom: "12px",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Terms of Service
-        </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "15px" }}>
-          Last updated:{" "}
-          {new Date().toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
+    <>
+      <header className="doc-head">
+        <h1>Terms of Service</h1>
+        <p className="doc-meta t-small t-muted">
+          Last updated{" "}
+          <span className="t-mono">
+            {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          </span>
         </p>
-      </motion.div>
+      </header>
 
-      {/* Sections */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        style={{ display: "flex", flexDirection: "column", gap: "32px" }}
-      >
+      <div className="doc-body">
         {sections.map((section) => (
-          <motion.div
-            key={section.title}
-            variants={fadeUp}
-            style={{ scrollMarginTop: "80px" }}
-          >
-            <h2
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontSize: "18px",
-                fontWeight: 600,
-                marginBottom: "10px",
-                color: "var(--text-primary)",
-              }}
-            >
-              {section.title}
-            </h2>
-            <p
-              style={{
-                fontSize: "15px",
-                color: "var(--text-secondary)",
-                lineHeight: 1.8,
-              }}
-            >
-              {section.content}
-            </p>
-          </motion.div>
+          <div key={section.title}>
+            <h2>{section.title}</h2>
+            <p>{section.content}</p>
+          </div>
         ))}
-      </motion.div>
-
-      {/* Optional subtle footer note */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        style={{
-          marginTop: "80px",
-          textAlign: "center",
-          fontSize: "13px",
-          color: "var(--text-muted)",
-        }}
-      >
-        These Terms of Service are subject to change. Please check back
-        periodically.
-      </motion.p>
-    </div>
+      </div>
+    </>
   );
 }

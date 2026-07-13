@@ -1,54 +1,18 @@
-import { Skeleton } from "@/components/ui/skeleton";
-
 export default function Loading() {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-      }}
-    >
-      <div
-        className="glass"
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          padding: "40px",
-          borderRadius: "var(--radius)",
-        }}
-      >
-        {/* Header */}
-        <div style={{ marginBottom: "32px" }}>
-          <Skeleton className="h-8 w-52 mb-3" />
-          <Skeleton className="h-5 w-64" />
+    <div className="card auth-card">
+      <span className="skel skel-title" style={{ width: 190, height: 32, marginBottom: 8 }} />
+      <span className="skel skel-text" style={{ width: 230, marginBottom: 24 }} />
+      <div className="form-stack">
+        <div className="field">
+          <span className="skel skel-text" style={{ width: 100, height: 14 }} />
+          <span className="skel" style={{ width: "100%", height: 44 }} />
         </div>
-
-        {/* Error placeholder (sometimes shown) */}
-        <Skeleton
-          className="h-11 w-full mb-6 rounded-xl"
-          style={{ background: "#ef444415" }}
-        />
-
-        {/* Form Fields */}
-        <div className="space-y-6">
-          {/* New Password */}
-          <div>
-            <Skeleton className="h-4 w-32 mb-3" />
-            <Skeleton className="h-12 w-full rounded-xl" />
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <Skeleton className="h-4 w-40 mb-3" />
-            <Skeleton className="h-12 w-full rounded-xl" />
-          </div>
+        <div className="field">
+          <span className="skel skel-text" style={{ width: 150, height: 14 }} />
+          <span className="skel" style={{ width: "100%", height: 44 }} />
         </div>
-
-        {/* Submit Button */}
-        <Skeleton className="h-12 w-full mt-10 rounded-2xl" />
+        <span className="skel" style={{ width: "100%", height: 44 }} />
       </div>
     </div>
   );

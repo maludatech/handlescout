@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import Navbar from "@/components/shared/Navbar";
+import { ProGate } from "@/components/shared/ProGate";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { getPlatformMeta } from "@/lib/platform-meta";
 
 interface SavedUsername {
   id: string;
@@ -14,115 +17,91 @@ interface SavedUsername {
   created_at: string;
 }
 
-// Animation Variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.07,
-      delayChildren: 0.05,
-    },
-  },
-};
+interface Profile {
+  plan: string;
+  full_name: string;
+  searches_today: number;
+  last_search_date: string | null;
+}
 
-const cardVariants = {
-  hidden: {
-    opacity: 0,
-    y: 40,
-    scale: 0.96,
-  },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 280,
-      damping: 24,
-    },
-  },
-  exit: {
-    opacity: 0,
-    y: 20,
-    scale: 0.95,
-    transition: { duration: 0.2 },
-  },
-  hover: {
-    y: -6,
-    scale: 1.015,
-    transition: {
-      type: "spring" as const,
-      stiffness: 400,
-      damping: 25,
-    },
-  },
-};
-
-function SkeletonCard() {
+function SavedSkeleton() {
   return (
-    <motion.div
-      className="glass"
-      style={{ padding: "20px" }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      <div
-        className="skeleton"
-        style={{ height: "20px", width: "60%", marginBottom: "12px" }}
-      />
-      <div
-        style={{
-          display: "flex",
-          gap: "6px",
-          flexWrap: "wrap",
-          marginBottom: "16px",
-        }}
-      >
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="skeleton"
-            style={{ height: "22px", width: "70px", borderRadius: "100px" }}
-          />
-        ))}
-      </div>
-      <div
-        className="skeleton"
-        style={{ height: "32px", width: "80px", borderRadius: "8px" }}
-      />
-    </motion.div>
+    <div className="saved-grid">
+      {[150, 120, 170].map((w, i) => (
+        <div className="card saved-card" key={i}>
+          <div className="handle">
+            <span className="skel" style={{ display: "block", width: w, height: 28 }} />
+          </div>
+          <div className="platforms">
+            {[1, 2, 3].map((j) => (
+              <span key={j} className="skel skel-badge" style={{ width: 44 }} />
+            ))}
+          </div>
+          <div className="actions">
+            <span className="skel" style={{ width: "100%", height: 44 }} />
+            <span className="skel" style={{ width: "100%", height: 44 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Generic illustrative example — not the user's real data — shown blurred
+// behind the pro-gate card so the layout communicates what's on offer.
+function SavedPreview() {
+  const examples = [
+    { handle: "studiominimal", on: ["Instagram", "TikTok", "GitHub"] },
+    { handle: "scoutmyname", on: ["X (Twitter)", "GitHub", "DevTo"] },
+  ];
+  return (
+    <div className="saved-grid">
+      {examples.map((ex) => (
+        <div className="card saved-card" key={ex.handle}>
+          <div className="handle t-mono-lg">{ex.handle}</div>
+          <div className="platforms">
+            {ex.on.map((name) => (
+              <span key={name} className="badge badge-success badge-mono">
+                {getPlatformMeta(name)?.mono ?? name.slice(0, 2)}
+              </span>
+            ))}
+          </div>
+          <div className="actions">
+            <button type="button" className="btn btn-secondary btn-sm">
+              Copy
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm">
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 export default function Saved() {
+  const { user, supabase, loading: authLoading } = useAuthGuard();
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [saved, setSaved] = useState<SavedUsername[]>([]);
   const [loading, setLoading] = useState(true);
-  const [plan, setPlan] = useState<string>("free");
+  const [upgrading, setUpgrading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
-    const fetchSaved = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+    if (!user) return;
 
-      const { data: profile } = await supabase
+    const fetchSaved = async () => {
+      const { data: profileData } = await supabase
         .from("profiles")
-        .select("plan")
+        .select("plan, full_name, searches_today, last_search_date")
         .eq("id", user.id)
         .single();
 
-      setPlan(profile?.plan ?? "free");
+      setProfile(profileData);
 
-      if (profile?.plan !== "pro") {
+      if (profileData?.plan !== "pro") {
         setLoading(false);
         return;
       }
@@ -134,7 +113,8 @@ export default function Saved() {
     };
 
     fetchSaved();
-  }, [router, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleDelete = async (id: string, username: string) => {
     setDeleting(id);
@@ -157,324 +137,122 @@ export default function Saved() {
     }
   };
 
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      const res = await fetch("/api/lemonsqueezy/checkout", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else toast.error("Failed to start checkout. Try again.");
+    } catch {
+      toast.error("Something went wrong. Try again.");
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
+  const getSearchesLeft = () => {
+    if (!profile || profile.plan !== "free") return null;
+    const today = new Date().toISOString().split("T")[0];
+    const isNewDay = profile.last_search_date !== today;
+    if (isNewDay) return 3;
+    return Math.max(0, 3 - (profile.searches_today ?? 0));
+  };
+
+  const plan = profile?.plan ?? "free";
+
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p className="t-small t-muted">Loading…</p>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ minHeight: "100vh" }} className="dot-grid">
-      {/* Navbar */}
-      <nav
-        style={{
-          borderBottom: "1px solid var(--border)",
-          backdropFilter: "blur(12px)",
-          background: "#0a0a0f99",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1100px",
-            margin: "0 auto",
-            padding: "0 24px",
-            height: "64px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Link
-            href="/dashboard"
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontSize: "20px",
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              textDecoration: "none",
-            }}
-          >
-            Handle<span style={{ color: "var(--accent)" }}>Scout</span>
-          </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <Link
-              href="/dashboard"
-              style={{
-                fontSize: "14px",
-                color: "var(--text-muted)",
-                textDecoration: "none",
-              }}
-            >
-              ← Dashboard
-            </Link>
-            <button
-              onClick={handleSignOut}
-              style={{
-                fontSize: "14px",
-                color: "var(--text-muted)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "DM Sans, sans-serif",
-              }}
-            >
-              Sign out
-            </button>
+    <div>
+      <Navbar
+        plan={plan}
+        searchesLeft={getSearchesLeft()}
+        fullName={profile?.full_name ?? ""}
+        onUpgrade={handleUpgrade}
+        onSignOut={handleSignOut}
+        upgrading={upgrading}
+      />
+
+      <main>
+        <div className="shell-app">
+          <header className="app-head">
+            <h1>Saved handles</h1>
+            <p className="t-sec">Your shortlist, with the platforms where each name is still free.</p>
+          </header>
+
+          <div className="app-content">
+            {loading && <SavedSkeleton />}
+
+            {!loading && plan !== "pro" && (
+              <ProGate
+                preview={<SavedPreview />}
+                title="Saved handles is a Pro feature"
+                description="Keep a shortlist of the names you're considering, with the platforms where each is still available."
+              />
+            )}
+
+            {!loading && plan === "pro" && saved.length === 0 && (
+              <EmptyState
+                icon="⭑"
+                title="Nothing saved yet"
+                description="When a check turns up a handle worth keeping, save it here before someone else claims it."
+                actionHref="/dashboard"
+                actionLabel="Check a username"
+              />
+            )}
+
+            {!loading && plan === "pro" && saved.length > 0 && (
+              <div className="saved-grid">
+                {saved.map((item) => (
+                  <div className="card saved-card" key={item.id}>
+                    <div className="handle t-mono-lg">{item.username}</div>
+                    {item.available_on.length > 0 && (
+                      <div className="platforms">
+                        {item.available_on.map((name) => (
+                          <span key={name} className="badge badge-success badge-mono">
+                            {getPlatformMeta(name)?.mono ?? name.slice(0, 2)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(item.username);
+                          toast.success(`@${item.username} copied!`);
+                        }}
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        disabled={deleting === item.id}
+                        onClick={() => handleDelete(item.id, item.username)}
+                      >
+                        {deleting === item.id ? "…" : "Remove"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </nav>
-
-      <main
-        style={{
-          maxWidth: "900px",
-          margin: "0 auto",
-          padding: "48px 24px",
-        }}
-      >
-        <div style={{ marginBottom: "32px" }}>
-          <motion.h1
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontSize: "32px",
-              fontWeight: 700,
-              marginBottom: "8px",
-            }}
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            Saved usernames
-          </motion.h1>
-          <motion.p
-            style={{ color: "var(--text-muted)", fontSize: "15px" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            Your bookmarked handles — available across platforms
-          </motion.p>
-        </div>
-
-        {/* Pro gate */}
-        {!loading && plan !== "pro" && (
-          <motion.div
-            className="glass"
-            style={{
-              padding: "64px 40px",
-              textAlign: "center",
-            }}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-          >
-            <div
-              style={{ fontSize: "48px", marginBottom: "16px", opacity: 0.5 }}
-            >
-              🔖
-            </div>
-            <h2
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontSize: "22px",
-                fontWeight: 700,
-                marginBottom: "10px",
-              }}
-            >
-              Pro feature
-            </h2>
-            <p
-              style={{
-                color: "var(--text-muted)",
-                fontSize: "15px",
-                marginBottom: "24px",
-                maxWidth: "400px",
-                margin: "0 auto 24px",
-              }}
-            >
-              Upgrade to Pro to save and manage your favourite usernames across
-              all platforms.
-            </p>
-            <Link href="/dashboard">
-              <button className="btn-primary" style={{ padding: "12px 28px" }}>
-                Upgrade to Pro — $9/mo
-              </button>
-            </Link>
-          </motion.div>
-        )}
-
-        {/* Loading skeletons */}
-        {loading && (
-          <motion.div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              gap: "16px",
-            }}
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </motion.div>
-        )}
-
-        {/* Empty state */}
-        {!loading && plan === "pro" && saved.length === 0 && (
-          <motion.div
-            className="glass empty-state"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="empty-state-icon">🔖</div>
-            <h3
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontSize: "18px",
-                fontWeight: 600,
-                marginBottom: "8px",
-                color: "var(--text-secondary)",
-              }}
-            >
-              No saved usernames yet
-            </h3>
-            <p style={{ fontSize: "14px", marginBottom: "24px" }}>
-              Save usernames from your search results to find them here
-            </p>
-            <Link href="/dashboard">
-              <button className="btn-primary" style={{ padding: "10px 24px" }}>
-                Start searching
-              </button>
-            </Link>
-          </motion.div>
-        )}
-
-        {/* Saved usernames grid */}
-        {!loading && plan === "pro" && saved.length > 0 && (
-          <AnimatePresence mode="popLayout">
-            <motion.div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                gap: "16px",
-              }}
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              {saved.map((item) => (
-                <motion.div
-                  key={item.id}
-                  className="glass"
-                  style={{ padding: "20px" }}
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  whileHover="hover"
-                  layout
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: "Syne, sans-serif",
-                        fontSize: "16px",
-                        fontWeight: 700,
-                        color: "#818cf8",
-                      }}
-                    >
-                      @{item.username}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      {new Date(item.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-
-                  {item.available_on.length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "6px",
-                        marginBottom: "16px",
-                      }}
-                    >
-                      {item.available_on.map((platform) => (
-                        <span
-                          key={platform}
-                          className="badge badge-available"
-                          style={{ fontSize: "11px" }}
-                        >
-                          {platform}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(item.username);
-                        toast.success(`@${item.username} copied!`);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid var(--border)",
-                        background: "#ffffff06",
-                        color: "var(--text-secondary)",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        fontFamily: "DM Sans, sans-serif",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      Copy
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id, item.username)}
-                      disabled={deleting === item.id}
-                      style={{
-                        padding: "8px 12px",
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid #ef444430",
-                        background: "#ef444415",
-                        color: "#f87171",
-                        fontSize: "13px",
-                        cursor: "pointer",
-                        fontFamily: "DM Sans, sans-serif",
-                        transition: "all 0.2s",
-                        opacity: deleting === item.id ? 0.5 : 1,
-                      }}
-                    >
-                      {deleting === item.id ? "..." : "Remove"}
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-        )}
       </main>
     </div>
   );

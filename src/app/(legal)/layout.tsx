@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 export default async function LegalLayout({
   children,
@@ -12,146 +13,51 @@ export default async function LegalLayout({
   } = await supabase.auth.getUser();
 
   return (
-    <div style={{ minHeight: "100vh" }} className="dot-grid">
-      {/* Navbar */}
-      <nav
-        style={{
-          borderBottom: "1px solid var(--border)",
-          backdropFilter: "blur(12px)",
-          background: "#0a0a0f99",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1100px",
-            margin: "0 auto",
-            padding: "0 24px",
-            height: "64px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Link
-            href={user ? "/dashboard" : "/"}
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontSize: "20px",
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              textDecoration: "none",
-            }}
-          >
-            Handle<span style={{ color: "var(--accent)" }}>Scout</span>
+    <>
+      <nav className="nav">
+        <div className="nav-inner" style={{ maxWidth: "1120px" }}>
+          <Link href={user ? "/dashboard" : "/"} className="nav-logo">
+            <span className="mark">@</span>HandleScout
           </Link>
-
-          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-            {user ? (
-              <Link
-                href="/dashboard"
-                style={{
-                  fontSize: "14px",
-                  color: "var(--text-muted)",
-                  textDecoration: "none",
-                }}
-              >
-                ← Back to dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  style={{
-                    fontSize: "14px",
-                    color: "var(--text-muted)",
-                    textDecoration: "none",
-                  }}
-                >
-                  Sign in
-                </Link>
-                <Link href="/signup">
-                  <button
-                    className="btn-primary"
-                    style={{
-                      padding: "8px 18px",
-                      fontSize: "14px",
-                    }}
-                  >
-                    Get started
-                  </button>
-                </Link>
-              </>
-            )}
+          <div className="nav-links">
+            <Link href="/#features">Features</Link>
+            <Link href="/#pricing">Pricing</Link>
+            <Link href="/faq">FAQ</Link>
           </div>
+          <div className="nav-spacer" />
+          <ThemeToggle />
+          {user ? (
+            <Link href="/dashboard" className="btn btn-secondary btn-sm">
+              Back to dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="btn btn-ghost btn-sm">
+                Sign in
+              </Link>
+              <Link href="/signup" className="btn btn-primary btn-sm">
+                Get started
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
-      {/* Content */}
-      <main
-        style={{
-          maxWidth: "720px",
-          margin: "0 auto",
-          padding: "64px 24px 120px",
-        }}
-      >
-        {children}
+      <main>
+        <div className="shell-doc">{children}</div>
       </main>
 
-      {/* Footer */}
-      <footer
-        style={{
-          borderTop: "1px solid var(--border)",
-          padding: "32px 24px",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "24px",
-            marginBottom: "16px",
-            flexWrap: "wrap",
-          }}
-        >
-          <Link
-            href="/terms"
-            style={{
-              fontSize: "13px",
-              color: "var(--text-muted)",
-              textDecoration: "none",
-            }}
-          >
-            Terms
-          </Link>
-          <Link
-            href="/privacy"
-            style={{
-              fontSize: "13px",
-              color: "var(--text-muted)",
-              textDecoration: "none",
-            }}
-          >
-            Privacy
-          </Link>
-          <Link
-            href="/faq"
-            style={{
-              fontSize: "13px",
-              color: "var(--text-muted)",
-              textDecoration: "none",
-            }}
-          >
-            FAQ
-          </Link>
+      <footer className="footer">
+        <div className="footer-inner" style={{ maxWidth: "1120px" }}>
+          <span className="t-caption t-muted">© {new Date().getFullYear()} HandleScout</span>
+          <div className="footer-links">
+            <Link href="/faq">FAQ</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/login">Sign in</Link>
+          </div>
         </div>
-        <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-          © {new Date().getFullYear()} HandleScout. All rights reserved.
-        </p>
       </footer>
-    </div>
+    </>
   );
 }
