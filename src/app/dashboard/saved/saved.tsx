@@ -8,7 +8,9 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import Navbar from "@/components/shared/Navbar";
 import { ProGate } from "@/components/shared/ProGate";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PageSkeleton } from "@/components/shared/PageSkeleton";
 import { getPlatformMeta } from "@/lib/platform-meta";
+import { hasFullAccess } from "@/lib/plan";
 
 interface SavedUsername {
   id: string;
@@ -19,6 +21,7 @@ interface SavedUsername {
 
 interface Profile {
   plan: string;
+  is_founder: boolean;
   full_name: string;
   searches_today: number;
   last_search_date: string | null;
@@ -93,15 +96,19 @@ export default function Saved() {
     if (!user) return;
 
     const fetchSaved = async () => {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("plan, full_name, searches_today, last_search_date")
+        .select("plan, is_founder, full_name, searches_today, last_search_date")
         .eq("id", user.id)
         .single();
 
+      if (profileError) {
+        console.error("Failed to load profile:", profileError.message);
+      }
+
       setProfile(profileData);
 
-      if (profileData?.plan !== "pro") {
+      if (!profileData || !hasFullAccess(profileData)) {
         setLoading(false);
         return;
       }
@@ -157,7 +164,7 @@ export default function Saved() {
   };
 
   const getSearchesLeft = () => {
-    if (!profile || profile.plan !== "free") return null;
+    if (!profile || hasFullAccess(profile)) return null;
     const today = new Date().toISOString().split("T")[0];
     const isNewDay = profile.last_search_date !== today;
     if (isNewDay) return 3;
@@ -165,19 +172,17 @@ export default function Saved() {
   };
 
   const plan = profile?.plan ?? "free";
+  const fullAccess = !!profile && hasFullAccess(profile);
 
   if (authLoading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p className="t-small t-muted">Loading…</p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div>
       <Navbar
         plan={plan}
+        is_founder={profile?.is_founder ?? false}
         searchesLeft={getSearchesLeft()}
         fullName={profile?.full_name ?? ""}
         onUpgrade={handleUpgrade}
@@ -195,7 +200,7 @@ export default function Saved() {
           <div className="app-content">
             {loading && <SavedSkeleton />}
 
-            {!loading && plan !== "pro" && (
+            {!loading && !fullAccess && (
               <ProGate
                 preview={<SavedPreview />}
                 title="Saved handles is a Pro feature"
@@ -203,7 +208,7 @@ export default function Saved() {
               />
             )}
 
-            {!loading && plan === "pro" && saved.length === 0 && (
+            {!loading && fullAccess && saved.length === 0 && (
               <EmptyState
                 icon="⭑"
                 title="Nothing saved yet"
@@ -213,7 +218,7 @@ export default function Saved() {
               />
             )}
 
-            {!loading && plan === "pro" && saved.length > 0 && (
+            {!loading && fullAccess && saved.length > 0 && (
               <div className="saved-grid">
                 {saved.map((item) => (
                   <div className="card saved-card" key={item.id}>

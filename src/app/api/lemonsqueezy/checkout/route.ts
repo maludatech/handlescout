@@ -1,9 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createCheckoutUrl } from "@/lib/lemonsqueezy";
+import { isTrustedOrigin } from "@/lib/origin-check";
+import { hasFullAccess } from "@/lib/plan";
 import { NextResponse } from "next/server";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    if (!isTrustedOrigin(request)) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -15,13 +21,13 @@ export async function POST() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("plan")
+      .select("plan, is_founder")
       .eq("id", user.id)
       .single();
 
-    if (profile?.plan === "pro") {
+    if (profile && hasFullAccess(profile)) {
       return NextResponse.json(
-        { error: "Already on Pro plan" },
+        { error: "You already have full access" },
         { status: 400 },
       );
     }

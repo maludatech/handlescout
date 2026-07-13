@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlatformBreakdown, type UsernameResult } from "@/components/shared/PlatformBreakdown";
 import { ResultsSkeleton } from "@/components/shared/ResultsSkeleton";
+import { hasFullAccess, type PlanInfo } from "@/lib/plan";
 
-interface SearchFormProps {
-  plan: string;
+interface SearchFormProps extends PlanInfo {
   searchesLeft: number | null;
   onSearchUsed: () => void;
 }
@@ -19,7 +19,8 @@ function scoreTone(score: number): "success" | "warning" | "danger" {
   return "danger";
 }
 
-export default function SearchForm({ plan, searchesLeft, onSearchUsed }: SearchFormProps) {
+export default function SearchForm({ plan, is_founder, searchesLeft, onSearchUsed }: SearchFormProps) {
+  const fullAccess = hasFullAccess({ plan, is_founder });
   const [directUsername, setDirectUsername] = useState("");
   const [directLoading, setDirectLoading] = useState(false);
   const [directError, setDirectError] = useState<string | null>(null);
@@ -62,7 +63,7 @@ export default function SearchForm({ plan, searchesLeft, onSearchUsed }: SearchF
 
   const handleGenerate = async () => {
     if (!keywords.trim()) return;
-    if (plan === "free" && searchesLeft === 0) {
+    if (!fullAccess && searchesLeft === 0) {
       setGenerateError("Daily limit reached. Upgrade to Pro for unlimited generations.");
       return;
     }
@@ -155,7 +156,7 @@ export default function SearchForm({ plan, searchesLeft, onSearchUsed }: SearchF
         <div style={{ marginTop: "32px" }}>
           {directLoading && <ResultsSkeleton />}
           {directResult && !directLoading && (
-            <PlatformBreakdown result={directResult} plan={plan} onSave={handleSave} />
+            <PlatformBreakdown result={directResult} canSave={fullAccess} onSave={handleSave} />
           )}
         </div>
       </TabsContent>
@@ -175,14 +176,14 @@ export default function SearchForm({ plan, searchesLeft, onSearchUsed }: SearchF
             type="button"
             className="btn btn-primary"
             onClick={handleGenerate}
-            disabled={generateLoading || !keywords.trim() || (plan === "free" && searchesLeft === 0)}
+            disabled={generateLoading || !keywords.trim() || (!fullAccess && searchesLeft === 0)}
           >
             {generateLoading ? "Generating…" : "Generate handles"}
           </button>
         </div>
         <p className="hint t-small t-muted">
           AI proposes handles from your keywords and checks each across all 15 platforms.
-          {plan === "free" && searchesLeft !== null && (
+          {!fullAccess && searchesLeft !== null && (
             <>
               {" "}
               <span className="t-mono">{searchesLeft}/3</span> generations left today.
@@ -241,7 +242,7 @@ export default function SearchForm({ plan, searchesLeft, onSearchUsed }: SearchF
               </div>
 
               {selectedResult && (
-                <PlatformBreakdown result={selectedResult} plan={plan} onSave={handleSave} />
+                <PlatformBreakdown result={selectedResult} canSave={fullAccess} onSave={handleSave} />
               )}
             </div>
           )}

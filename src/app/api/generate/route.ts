@@ -1,10 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { generateUsernames } from "@/lib/groq";
 import { checkMultipleUsernames, getAvailabilityScore } from "@/lib/checker";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/origin-check";
+import { hasFullAccess } from "@/lib/plan";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
+    if (!isTrustedOrigin(request)) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -14,18 +21,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const withinLimit = await checkRateLimit(supabase, user.id, "generate", 10, 60);
+    if (!withinLimit) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        { status: 429 },
+      );
+    }
+
     // Check rate limit for free users
     const { data: profile } = await supabase
       .from("profiles")
-      .select("plan, searches_today, last_search_date")
+      .select("plan, is_founder, searches_today, last_search_date")
       .eq("id", user.id)
       .single();
 
-    if (profile?.plan === "free") {
-      const today = new Date().toISOString().split("T")[0];
-      const lastSearchDate = profile.last_search_date;
+    const fullAccess = hasFullAccess({
+      plan: profile?.plan ?? "free",
+      is_founder: profile?.is_founder,
+    });
 
-      if (lastSearchDate === today && (profile.searches_today ?? 0) >= 3) {
+    if (!fullAccess) {
+      const today = new Date().toISOString().split("T")[0];
+      const lastSearchDate = profile?.last_search_date;
+
+      if (lastSearchDate === today && (profile?.searches_today ?? 0) >= 3) {
         return NextResponse.json(
           {
             error:
@@ -41,6 +61,13 @@ export async function POST(request: Request) {
     if (!keywords?.trim()) {
       return NextResponse.json(
         { error: "Keywords are required" },
+        { status: 400 },
+      );
+    }
+
+    if (keywords.length > 200) {
+      return NextResponse.json(
+        { error: "Keywords must be 200 characters or fewer" },
         { status: 400 },
       );
     }

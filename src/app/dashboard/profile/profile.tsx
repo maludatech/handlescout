@@ -6,11 +6,14 @@ import { toast } from "sonner";
 
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import Navbar from "@/components/shared/Navbar";
+import { PageSkeleton } from "@/components/shared/PageSkeleton";
+import { hasFullAccess, displayPlan } from "@/lib/plan";
 
 interface Profile {
   full_name: string;
   email: string;
   plan: string;
+  is_founder: boolean;
   created_at: string;
   searches_today: number;
   last_search_date: string | null;
@@ -48,11 +51,16 @@ export default function Profile() {
   useEffect(() => {
     if (!user) return;
     const fetchProfile = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, email, plan, created_at, searches_today, last_search_date")
+        .select("full_name, email, plan, is_founder, created_at, searches_today, last_search_date")
         .eq("id", user.id)
         .single();
+      if (error) {
+        console.error("Failed to load profile:", error.message);
+        toast.error("Failed to load your profile. Please refresh.");
+        return;
+      }
       if (data) {
         setProfile(data);
         setFullName(data.full_name ?? "");
@@ -126,7 +134,7 @@ export default function Profile() {
   };
 
   const getSearchesLeft = () => {
-    if (!profile || profile.plan !== "free") return null;
+    if (!profile || hasFullAccess(profile)) return null;
     const today = new Date().toISOString().split("T")[0];
     const isNewDay = profile.last_search_date !== today;
     if (isNewDay) return 3;
@@ -134,19 +142,18 @@ export default function Profile() {
   };
 
   if (authLoading || !profile) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p className="t-small t-muted">Loading…</p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   const searchesLeft = getSearchesLeft();
+  const fullAccess = hasFullAccess(profile);
+  const label = displayPlan(profile);
 
   return (
     <div>
       <Navbar
         plan={profile.plan}
+        is_founder={profile.is_founder}
         searchesLeft={searchesLeft}
         fullName={profile.full_name ?? ""}
         onUpgrade={handleUpgrade}
@@ -176,12 +183,12 @@ export default function Profile() {
                 <div className="kv">
                   <dt>Plan</dt>
                   <dd>
-                    <span className={profile.plan === "pro" ? "badge badge-accent" : "badge badge-neutral"}>
-                      {profile.plan === "pro" ? "Pro" : "Free"}
+                    <span className={label === "Free" ? "badge badge-neutral" : "badge badge-accent"}>
+                      {label}
                     </span>
                   </dd>
                 </div>
-                {profile.plan === "free" && (
+                {!fullAccess && (
                   <div className="kv">
                     <dt>AI generations</dt>
                     <dd className="t-mono">{searchesLeft}/3 left today</dd>
@@ -198,7 +205,11 @@ export default function Profile() {
                 </div>
               </dl>
 
-              {profile.plan === "free" ? (
+              {profile.is_founder ? (
+                <p className="hint t-small" style={{ marginTop: "20px" }}>
+                  Full access granted as founder — no subscription needed.
+                </p>
+              ) : profile.plan === "free" ? (
                 <div
                   style={{
                     marginTop: "20px",

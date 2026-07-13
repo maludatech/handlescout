@@ -7,9 +7,12 @@ import { useRouter } from "next/navigation";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import SearchForm from "@/components/shared/SearchForm";
 import Navbar from "@/components/shared/Navbar";
+import { PageSkeleton } from "@/components/shared/PageSkeleton";
+import { hasFullAccess } from "@/lib/plan";
 
 interface Profile {
   plan: string;
+  is_founder: boolean;
   full_name: string;
   searches_today: number;
   last_search_date: string | null;
@@ -25,11 +28,17 @@ export default function Dashboard() {
     if (!user) return;
 
     const fetchProfile = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
-        .select("plan, full_name, searches_today, last_search_date")
+        .select("plan, is_founder, full_name, searches_today, last_search_date")
         .eq("id", user.id)
         .single();
+
+      if (error) {
+        console.error("Failed to load profile:", error.message);
+        toast.error("Failed to load your profile. Please refresh.");
+        return;
+      }
 
       setProfile(data);
 
@@ -48,7 +57,7 @@ export default function Dashboard() {
   }, [user]);
 
   const getSearchesLeft = () => {
-    if (!profile || profile.plan !== "free") return null;
+    if (!profile || hasFullAccess(profile)) return null;
     const today = new Date().toISOString().split("T")[0];
     const isNewDay = profile.last_search_date !== today;
     if (isNewDay) return 3;
@@ -56,7 +65,7 @@ export default function Dashboard() {
   };
 
   const handleSearchUsed = () => {
-    if (!profile || profile.plan !== "free") return;
+    if (!profile || hasFullAccess(profile)) return;
     const today = new Date().toISOString().split("T")[0];
     const isNewDay = profile.last_search_date !== today;
     setProfile((prev) => {
@@ -91,17 +100,14 @@ export default function Dashboard() {
   const searchesLeft = getSearchesLeft();
 
   if (authLoading || !profile) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p className="t-small t-muted">Loading…</p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div>
       <Navbar
         plan={profile.plan ?? "free"}
+        is_founder={profile.is_founder}
         searchesLeft={searchesLeft}
         fullName={profile.full_name ?? ""}
         onUpgrade={handleUpgrade}
@@ -121,6 +127,7 @@ export default function Dashboard() {
           <div className="app-content">
             <SearchForm
               plan={profile.plan ?? "free"}
+              is_founder={profile.is_founder}
               searchesLeft={searchesLeft}
               onSearchUsed={handleSearchUsed}
             />

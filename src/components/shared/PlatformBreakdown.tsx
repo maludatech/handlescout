@@ -30,11 +30,11 @@ const STATUS_LINK: Record<PlatformStatus, string | null> = {
 
 export function PlatformBreakdown({
   result,
-  plan,
+  canSave,
   onSave,
 }: {
   result: UsernameResult;
-  plan: string;
+  canSave: boolean;
   onSave?: (username: string, availableOn: string[]) => void;
 }) {
   const byName = new Map(result.results.map((r) => [r.platform, r]));
@@ -48,7 +48,7 @@ export function PlatformBreakdown({
             Score {result.score}
           </span>
         </div>
-        {plan === "pro" && onSave && (
+        {canSave && onSave && (
           <div style={{ display: "flex", gap: "8px" }}>
             <button
               type="button"

@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { hasFullAccess, displayPlan, type PlanInfo } from "@/lib/plan";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-interface NavbarProps {
-  plan: string;
+interface NavbarProps extends PlanInfo {
   searchesLeft: number | null;
   fullName: string;
   onUpgrade: () => void;
@@ -22,6 +22,7 @@ interface NavbarProps {
 
 export default function Navbar({
   plan,
+  is_founder,
   searchesLeft,
   fullName,
   onUpgrade,
@@ -29,7 +30,16 @@ export default function Navbar({
   upgrading,
 }: NavbarProps) {
   const initials = fullName?.charAt(0)?.toUpperCase() ?? "U";
-  const quotaText = plan === "pro" ? "— AI" : `${searchesLeft ?? 0}/3 AI`;
+  const fullAccess = hasFullAccess({ plan, is_founder });
+  const label = displayPlan({ plan, is_founder });
+  const quotaText = fullAccess ? "∞ AI" : `${searchesLeft ?? 0}/3 AI`;
+  const quotaColor = fullAccess
+    ? "var(--accent)"
+    : searchesLeft === 0
+      ? "var(--danger-text)"
+      : searchesLeft === 1
+        ? "var(--warning-text)"
+        : "var(--text-secondary)";
 
   return (
     <nav className="nav">
@@ -38,20 +48,24 @@ export default function Navbar({
           <span className="mark">@</span>HandleScout
         </Link>
 
-        <span className={plan === "pro" ? "badge badge-accent" : "badge badge-neutral"}>
-          {plan === "pro" ? "Pro" : "Free"}
+        <span className={`badge ${label === "Free" ? "badge-neutral" : "badge-accent"} nav-badge`}>
+          {label}
         </span>
 
         <div className="nav-spacer" />
 
-        <span className="nav-quota t-mono" title="AI generations left today">
+        <span
+          className="nav-quota t-mono"
+          title={fullAccess ? "Unlimited AI generations" : "AI generations left today"}
+          style={{ color: quotaColor }}
+        >
           {quotaText}
         </span>
 
-        {plan !== "pro" && (
+        {!fullAccess && (
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm nav-upgrade"
             onClick={onUpgrade}
             disabled={upgrading}
           >
@@ -68,7 +82,18 @@ export default function Navbar({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <div className="menu-quota">{quotaText} generations</div>
+            <div className="menu-quota">
+              <span className={`badge ${label === "Free" ? "badge-neutral" : "badge-accent"}`}>
+                {label}
+              </span>
+              <span style={{ marginLeft: "8px", color: quotaColor }}>{quotaText} generations</span>
+            </div>
+            {!fullAccess && (
+              <DropdownMenuItem onSelect={onUpgrade}>
+                {upgrading ? "Redirecting…" : "Upgrade to Pro"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/dashboard/profile">Profile</Link>
             </DropdownMenuItem>
@@ -78,6 +103,11 @@ export default function Navbar({
             <DropdownMenuItem asChild>
               <Link href="/dashboard/saved">Saved</Link>
             </DropdownMenuItem>
+            {is_founder && (
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin">Admin</Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem className="menu-item-danger" onSelect={onSignOut}>
               Sign out

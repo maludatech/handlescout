@@ -8,6 +8,8 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import Navbar from "@/components/shared/Navbar";
 import { ProGate } from "@/components/shared/ProGate";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PageSkeleton } from "@/components/shared/PageSkeleton";
+import { hasFullAccess } from "@/lib/plan";
 
 interface SearchRecord {
   id: string;
@@ -18,6 +20,7 @@ interface SearchRecord {
 
 interface Profile {
   plan: string;
+  is_founder: boolean;
   full_name: string;
   searches_today: number;
   last_search_date: string | null;
@@ -78,32 +81,40 @@ export default function History() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [history, setHistory] = useState<SearchRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [upgrading, setUpgrading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchHistory = async () => {
+    const fetchProfileAndHistory = async () => {
       try {
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("plan, full_name, searches_today, last_search_date")
+          .select("plan, is_founder, full_name, searches_today, last_search_date")
           .eq("id", user.id)
           .single();
 
+        if (profileError) {
+          console.error("Failed to load profile:", profileError.message);
+        }
+
         setProfile(profileData);
 
-        if (profileData?.plan !== "pro") {
+        if (!profileData || !hasFullAccess(profileData)) {
           setLoading(false);
           return;
         }
 
-        const res = await fetch("/api/search-history");
+        const res = await fetch("/api/search-history?page=1");
         if (!res.ok) throw new Error("Failed to fetch history");
 
         const data = await res.json();
         setHistory(data.history || []);
+        setTotalPages(data.totalPages ?? 1);
       } catch (error) {
         console.error("History fetch error:", error);
         toast.error("Failed to load search history");
@@ -112,9 +123,27 @@ export default function History() {
       }
     };
 
-    fetchHistory();
+    fetchProfileAndHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const goToPage = async (nextPage: number) => {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === page) return;
+    setPageLoading(true);
+    try {
+      const res = await fetch(`/api/search-history?page=${nextPage}`);
+      if (!res.ok) throw new Error("Failed to fetch history");
+      const data = await res.json();
+      setHistory(data.history || []);
+      setTotalPages(data.totalPages ?? 1);
+      setPage(nextPage);
+    } catch (error) {
+      console.error("History page fetch error:", error);
+      toast.error("Failed to load that page. Try again.");
+    } finally {
+      setPageLoading(false);
+    }
+  };
 
   const handleUpgrade = async () => {
     setUpgrading(true);
@@ -136,7 +165,7 @@ export default function History() {
   };
 
   const getSearchesLeft = () => {
-    if (!profile || profile.plan !== "free") return null;
+    if (!profile || hasFullAccess(profile)) return null;
     const today = new Date().toISOString().split("T")[0];
     const isNewDay = profile.last_search_date !== today;
     if (isNewDay) return 3;
@@ -144,19 +173,17 @@ export default function History() {
   };
 
   const plan = profile?.plan ?? "free";
+  const fullAccess = !!profile && hasFullAccess(profile);
 
   if (authLoading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p className="t-small t-muted">Loading…</p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div>
       <Navbar
         plan={plan}
+        is_founder={profile?.is_founder ?? false}
         searchesLeft={getSearchesLeft()}
         fullName={profile?.full_name ?? ""}
         onUpgrade={handleUpgrade}
@@ -172,9 +199,9 @@ export default function History() {
           </header>
 
           <div className="app-content">
-            {loading && <HistorySkeleton />}
+            {(loading || pageLoading) && <HistorySkeleton />}
 
-            {!loading && plan !== "pro" && (
+            {!loading && !fullAccess && (
               <ProGate
                 preview={<HistoryPreview />}
                 title="History is a Pro feature"
@@ -182,7 +209,7 @@ export default function History() {
               />
             )}
 
-            {!loading && plan === "pro" && history.length === 0 && (
+            {!loading && !pageLoading && fullAccess && history.length === 0 && (
               <EmptyState
                 icon="⌕"
                 title="No searches yet"
@@ -192,42 +219,76 @@ export default function History() {
               />
             )}
 
-            {!loading && plan === "pro" && history.length > 0 && (
-              <div className="history-list">
-                {history.map((record) => (
-                  <div className="card history-item" key={record.id}>
-                    <div className="row1">
-                      <h3 className="t-mono" style={{ fontSize: "14px" }}>
-                        {record.keywords}
-                      </h3>
-                      <span className="t-caption t-muted">
-                        {new Date(record.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+            {!loading && !pageLoading && fullAccess && history.length > 0 && (
+              <>
+                <div className="history-list">
+                  {history.map((record) => (
+                    <div className="card history-item" key={record.id}>
+                      <div className="row1">
+                        <h3 className="t-mono" style={{ fontSize: "14px" }}>
+                          {record.keywords}
+                        </h3>
+                        <span className="t-caption t-muted">
+                          {new Date(record.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="chip-group">
+                        {record.generated_usernames.map((username) => (
+                          <button
+                            key={username}
+                            type="button"
+                            className="badge badge-neutral badge-mono"
+                            style={{ cursor: "pointer", border: "1px solid var(--border)" }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(username);
+                              toast.success(`@${username} copied!`);
+                            }}
+                          >
+                            {username}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="chip-group">
-                      {record.generated_usernames.map((username) => (
-                        <button
-                          key={username}
-                          type="button"
-                          className="badge badge-neutral badge-mono"
-                          style={{ cursor: "pointer", border: "1px solid var(--border)" }}
-                          onClick={() => {
-                            navigator.clipboard.writeText(username);
-                            toast.success(`@${username} copied!`);
-                          }}
-                        >
-                          {username}
-                        </button>
-                      ))}
-                    </div>
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "16px",
+                      marginTop: "24px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => goToPage(page - 1)}
+                      disabled={page <= 1}
+                    >
+                      ← Previous
+                    </button>
+                    <span className="t-small t-muted t-mono">
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => goToPage(page + 1)}
+                      disabled={page >= totalPages}
+                    >
+                      Next →
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         </div>

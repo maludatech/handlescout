@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
@@ -7,8 +7,16 @@ function verifySignature(payload: string, signature: string): boolean {
     "sha256",
     process.env.LEMONSQUEEZY_SIGNING_SECRET!,
   );
-  const digest = hmac.update(payload).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
+  const digestBuffer = Buffer.from(hmac.update(payload).digest("hex"));
+  const signatureBuffer = Buffer.from(signature);
+
+  // timingSafeEqual throws on length mismatch rather than returning false —
+  // guard it explicitly so a malformed/forged signature header cleanly fails
+  // verification instead of bubbling up as a 500.
+  if (digestBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(digestBuffer, signatureBuffer);
 }
 
 export async function POST(request: Request) {
@@ -23,7 +31,12 @@ export async function POST(request: Request) {
     const event = JSON.parse(payload);
     const eventName = event.meta?.event_name;
     const userId = event.meta?.custom_data?.user_id;
-    const supabase = await createClient();
+    // Service-role client: this is a server-to-server call from Lemon
+    // Squeezy (verified above via HMAC signature), not a user request, so
+    // there's no session/cookie for RLS to key off. Without this, an
+    // owner-only RLS policy on `profiles` would make these updates silently
+    // match zero rows — paying customers would never actually reach "pro".
+    const supabase = createAdminClient();
 
     switch (eventName) {
       case "order_created":

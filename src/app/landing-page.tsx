@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { MarketingNav } from "@/components/shared/MarketingNav";
 import { PLATFORM_META } from "@/lib/platform-meta";
 
 const FEATURES = [
@@ -41,26 +41,7 @@ const FEATURES = [
 export default function LandingPage() {
   return (
     <>
-      <nav className="nav">
-        <div className="nav-inner" style={{ maxWidth: "1120px" }}>
-          <Link href="/" className="nav-logo">
-            <span className="mark">@</span>HandleScout
-          </Link>
-          <div className="nav-links">
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <Link href="/faq">FAQ</Link>
-          </div>
-          <div className="nav-spacer" />
-          <ThemeToggle />
-          <Link href="/login" className="btn btn-ghost btn-sm">
-            Sign in
-          </Link>
-          <Link href="/signup" className="btn btn-primary btn-sm">
-            Get started
-          </Link>
-        </div>
-      </nav>
+      <MarketingNav />
 
       <main>
         <div className="shell-landing">

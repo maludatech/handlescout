@@ -1,9 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkUsername, getAvailabilityScore } from "@/lib/checker";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { isTrustedOrigin } from "@/lib/origin-check";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
+    if (!isTrustedOrigin(request)) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -11,6 +17,14 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const withinLimit = await checkRateLimit(supabase, user.id, "check", 20, 60);
+    if (!withinLimit) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down." },
+        { status: 429 },
+      );
     }
 
     const { username } = await request.json();
